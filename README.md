@@ -1,56 +1,77 @@
-# Transcribe (Next.js + Soniox)
+# 🎙️ AI 语音任务助手
 
-## 本地运行
+一个基于 **Next.js + Soniox + OpenAI（ChatAnywhere 接口）** 的语音智能助手。  
+用户上传音频文件后，系统会自动完成以下任务：
 
-1) 安装依赖：
+1. 🎧 **语音转文字** — 使用 Soniox 模型进行高质量语音识别  
+2. 🧠 **摘要生成** — 调用大语言模型总结音频主要内容  
+3. ✅ **层级待办清单生成** — 将音频内容拆解为主任务与子任务结构，清晰展示
+
+---
+
+## 🚀 在线体验
+
+
+---
+
+## 🛠️ 技术栈
+
+| 模块 | 技术 |
+|------|------|
+| 前端 | Next.js (App Router), React, TailwindCSS |
+| 后端 | Next.js API Routes |
+| 语音识别 | [Soniox API](https://soniox.com) |
+| 文本分析 | OpenAI GPT（通过 [ChatAnywhere](https://api.chatanywhere.tech) 转发） |
+| 部署 | [Vercel](https://vercel.com) |
+| 开发工具 | Cursor AI IDE |
+
+---
+
+## 📦 功能演示
+
+- 上传音频文件（mp3 / m4a / wav）
+- 实时显示上传进度与处理状态
+- 转写完成后生成：
+  - 📄 转录文本（Transcript）
+  - ✨ 摘要（Highlights）
+  - 🗂️ 层级待办清单（To-do）
+- 支持复制 Markdown / JSON
+- 移动端自适应（iPhone Safari 友好）
+
+---
+
+## ⚙️ 本地运行
+
 ```bash
-pnpm install   # 或 npm install / yarn
-```
+# 1. 克隆仓库
+git clone https://github.com/wxxz123/transcribe.git
+cd transcribe
 
-2) 设置环境变量 `SONIOX_API_KEY`：
-- Windows PowerShell（当前会话）：
-```powershell
-$env:SONIOX_API_KEY="你的API密钥"; pnpm dev
-```
-- macOS/Linux（当前会话）：
-```bash
-SONIOX_API_KEY="你的API密钥" pnpm dev
-```
-- 或在根目录创建 `.env.local`：
-```
-SONIOX_API_KEY=你的API密钥
-```
+# 2. 安装依赖
+npm install
 
-3) 启动开发服务器：
-```bash
-pnpm dev
-```
-访问：`http://localhost:3000/upload`
+# 3. 配置环境变量
+# 新建 .env.local 并填入：
+# SONIOX_API_KEY=你的Soniox密钥
+# CHATANYWHERE_KEY=你的ChatAnywhere密钥
 
-## ffmpeg 安装（macOS）
-
-推荐使用 Homebrew：
-```bash
-brew install ffmpeg
-```
-
-若未安装 ffmpeg，后端会优雅降级：直接将原始音频提交给 Soniox（可能不是 16k 单声道 WAV，但 API 仍尝试处理）。
-
-## 功能简述
-
-- 页面 `/upload`：文件选择、上传按钮、进度显示、结果展示（转写文本、摘要、关键词、待办清单）。
-- 组件：`UploadForm`、`ResultPanel`、`TodoList`（可勾选，导出 JSON/Markdown）。
-- 样式：Tailwind，移动端（含 iPhone Safari）适配。
-- API：`POST /api/transcribe` 接收 multipart/form-data；若非 wav 且系统安装了 ffmpeg，则转为 16k 单声道 wav；随后用 `SONIOX_API_KEY` 调用 Soniox 文件转写 REST；成功返回：
-```json
-{"transcript":"...","meta":{"durationSec":123,"language":"zh"}}
-```
-失败返回：
-```json
-{"error":"..."}
-```
-
-## 说明
-
-- 浏览器端在拿到 `transcript` 后，调用 `src/lib/analyze.ts` 的规则引擎生成 `summary/keywords/todos` 并渲染；提供复制与导出按钮。
+# 4. 启动开发环境
+npm run dev
+analyze.ts` 的规则引擎生成 `summary/keywords/todos` 并渲染；提供复制与导出按钮。
 - 若 Soniox API 路径或字段有更新，请调整 `app/api/transcribe/route.ts` 中的实现。
+
+
+💡 开发者感想
+
+这是我用 Cursor 实现的一个完整小项目，从前端 UI 到后端接口、模型调用都独立完成。
+它让我学会了如何组合语音模型与大语言模型，并通过 Next.js 构建全栈 AI 应用。
+
+🪙 后续计划
+
+ 支持微信小程序版本
+
+ 接入腾讯混元 / 通义千问模型
+
+ 增加用户登录与历史记录
+
+ 支持多语言语音识别
