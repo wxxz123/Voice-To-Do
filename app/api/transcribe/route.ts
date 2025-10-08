@@ -34,15 +34,57 @@ export async function POST(req: NextRequest) {
     let mimeOk = allowedMime.has(fileMime);
     let extOk = allowedExt.has(ext);
 
-    // 若 MIME/扩展都不在白名单，进行 WAV 魔数嗅探（RIFF/WAVE）
+    // 若 MIME/扩展都不在白名单，进行常见音频格式魔数嗅探
     if (!(mimeOk || extOk)) {
       try {
-        const headAb = await (file as File).slice(0, 12).arrayBuffer();
+        const headAb = await (file as File).slice(0, 512).arrayBuffer();
         const head = new Uint8Array(headAb);
-        const isRIFF = head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46; // 'RIFF'
-        const isWAVE = head[8] === 0x57 && head[9] === 0x41 && head[10] === 0x56 && head[11] === 0x45; // 'WAVE'
-        if (isRIFF && isWAVE) {
-          mimeOk = true; // 认为是 WAV
+
+        const matchStr = (offset: number, s: string) => {
+          for (let i = 0; i < s.length; i++) {
+            if (head[offset + i] !== s.charCodeAt(i)) return false;
+          }
+          return true;
+        };
+
+        const u32 = (i: number) => (head[i] << 24) | (head[i + 1] << 16) | (head[i + 2] << 8) | head[i + 3];
+        const len = head.length;
+
+        // WAV: 'RIFF' .... 'WAVE'
+        const isWav = len >= 12 && matchStr(0, 'RIFF') && matchStr(8, 'WAVE');
+
+        // MP3: 'ID3' tag 或 MPEG frame sync 0xFF Ex (E0-FB typically)
+        const isID3 = len >= 3 && matchStr(0, 'ID3');
+        const isMpegSync = len >= 2 && head[0] === 0xff && (head[1] & 0xe0) === 0xe0; // 宽松判定
+        const isMp3 = isID3 || isMpegSync;
+
+        // AAC (ADTS): 0xFFF1 or 0xFFF9
+        const isAacAdts = len >= 2 && head[0] === 0xff && (head[1] & 0xf6) === 0xf0; // 1111 1xx0
+
+        // OGG: 'OggS'
+        const isOgg = len >= 4 && matchStr(0, 'OggS');
+
+        // FLAC: 'fLaC'
+        const isFlac = len >= 4 && matchStr(0, 'fLaC');
+
+        // WebM/Matroska: EBML header 0x1A45DFA3
+        const isEbml = len >= 4 && u32(0) === 0x1a45dfa3;
+
+        // AMR: '#!AMR' 或 '#!AMR-NB' / '#!AMR-WB'
+        const isAmr = len >= 5 && matchStr(0, '#!AMR');
+
+        // MP4/M4A/3GP: 'ftyp' box at offset 4, brand 包含 'M4A ', 'mp42', 'isom', '3gp'
+        let isMp4Family = false;
+        if (len >= 12 && matchStr(4, 'ftyp')) {
+          const brands = ['M4A ', 'mp42', 'isom', 'iso2', '3gp', '3g2a'];
+          for (const b of brands) {
+            // 兼容品牌通常出现在 8~16 字节范围内
+            if (len >= 16 && (matchStr(8, b) || matchStr(12, b))) { isMp4Family = true; break; }
+          }
+        }
+
+        if (isWav || isMp3 || isAacAdts || isOgg || isFlac || isEbml || isAmr || isMp4Family) {
+          mimeOk = true;
         }
       } catch {}
     }
