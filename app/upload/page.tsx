@@ -152,9 +152,13 @@ function ClientUploadPage() {
 
       <div className="rounded-2xl border shadow-sm bg-white p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <input type="file" accept="audio/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" />
+          <input type="file" accept="audio/wav,.wav,audio/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" />
           <button onClick={onUpload} disabled={!file} className="rounded-md bg-black text-white px-4 py-2 text-sm">上传并转写</button>
         </div>
+        <p className="mt-2 text-xs text-gray-500">
+          支持格式：WAV、MP3、M4A、AAC、OGG、WEBM、FLAC、3GP、AMR、MP4（≤100MB）。
+          如果在手机上看不到 WAV，请从“文件/文件管理器”选择，或在语音备忘录中“共享/导出到浏览器”后上传；也可先将扩展名改为 .m4a/.mp3（后端可识别 WAV）。
+        </p>
         {(uploadRatio > 0 || transcribeDone || analyzeDone) && overallPercent < 100 && (
           <div className="mt-4">
             <div className="h-1 w-full bg-black/10 rounded-full overflow-hidden">
@@ -163,7 +167,7 @@ function ClientUploadPage() {
             <div className="text-xs text-black/60 mt-2">总体进度：{overallPercent}%（上传/转写/分析）</div>
           </div>
         )}
-        <p className="mt-2 text-xs text-gray-500">支持常见音频格式。文件将发送到后端进行转写。</p>
+        <p className="mt-2 text-xs text-gray-500">文件将发送到后端进行转写。</p>
       </div>
 
       <div className="rounded-2xl border shadow-sm bg-white">

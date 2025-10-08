@@ -66,10 +66,14 @@ export default function UploadForm({ onComplete }: Props) {
         <input
           ref={inputRef}
           type="file"
-          accept="audio/*"
+          accept="audio/wav,.wav,audio/*"
           onChange={onFileChange}
           className="block w-full text-sm"
         />
+        <p className="mt-2 text-xs text-gray-500">
+          支持格式：WAV、MP3、M4A、AAC、OGG、WEBM、FLAC、3GP、AMR、MP4（≤100MB）。
+          若手机上看不到 WAV，请从“文件/文件管理器”选择，或先在语音备忘录中“共享/导出到浏览器”后再上传；也可先改名为 .m4a/.mp3（后端可识别 WAV）。
+        </p>
       </div>
       {progressText && (
         <div className="text-sm text-gray-600">{progressText}</div>

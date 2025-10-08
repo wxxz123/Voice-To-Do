@@ -31,7 +31,23 @@ export async function POST(req: NextRequest) {
     const ext = filename.split('.').pop() || '';
     const allowedExt = new Set(['wav','mp3','m4a','aac','ogg','webm','flac','3gp','amr','mp4']);
     const fileMime = (file as any).type || '';
-    if (!(allowedMime.has(fileMime) || allowedExt.has(ext))) {
+    let mimeOk = allowedMime.has(fileMime);
+    let extOk = allowedExt.has(ext);
+
+    // 若 MIME/扩展都不在白名单，进行 WAV 魔数嗅探（RIFF/WAVE）
+    if (!(mimeOk || extOk)) {
+      try {
+        const headAb = await (file as File).slice(0, 12).arrayBuffer();
+        const head = new Uint8Array(headAb);
+        const isRIFF = head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46; // 'RIFF'
+        const isWAVE = head[8] === 0x57 && head[9] === 0x41 && head[10] === 0x56 && head[11] === 0x45; // 'WAVE'
+        if (isRIFF && isWAVE) {
+          mimeOk = true; // 认为是 WAV
+        }
+      } catch {}
+    }
+
+    if (!(mimeOk || extOk)) {
       return NextResponse.json({ error: '不支持的文件类型' }, { status: 415 });
     }
 
