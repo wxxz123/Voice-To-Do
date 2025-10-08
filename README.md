@@ -58,16 +58,20 @@ npm install
 # 4. 启动开发环境
 npm run dev
 analyze.ts` 的规则引擎生成 `summary/keywords/todos` 并渲染；提供复制与导出按钮。
-- 若 Soniox API 路径或字段有更新，请调整 `app/api/transcribe/route.ts` 中的实现。
 
 
-💡 开发者感想
+---
 
+## 开发感想
 这是我用 Cursor 实现的一个完整小项目，从前端 UI 到后端接口、模型调用都独立完成。
 它让我学会了如何组合语音模型与大语言模型，并通过 Next.js 构建全栈 AI 应用。
 
-🪙 后续计划
+---
 
+
+---
+
+## 🪙 后续计划
  支持微信小程序版本
 
  接入腾讯混元 / 通义千问模型
@@ -75,3 +79,6 @@ analyze.ts` 的规则引擎生成 `summary/keywords/todos` 并渲染；提供复
  增加用户登录与历史记录
 
  支持多语言语音识别
+
+---
+
