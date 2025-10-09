@@ -1,150 +1,188 @@
-import { NextRequest, NextResponse } from 'next/server';
+// app/api/transcribe/route.ts
+import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
+
+const SONIOX_API = "https://api.soniox.com/v1";
+const MODEL = process.env.SONIOX_MODEL || "soniox-public/en-general-v1";
+const KEY = process.env.SONIOX_API_KEY;
+
+async function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function pickRequestId(res: Response, body: any): string | undefined {
+  const headerId = res.headers.get("x-request-id") || res.headers.get("x-requestid") || undefined;
+  const bodyId = body?.request_id || body?.requestId || undefined;
+  return bodyId || headerId || undefined;
+}
+
+function safeJSON(text: string) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text } as any;
+  }
+}
 
 export async function POST(req: NextRequest) {
+  if (!KEY) {
+    return NextResponse.json({ error: "服务器未配置 SONIOX_API_KEY" }, { status: 500 });
+  }
+
   try {
-    const contentType = req.headers.get('content-type') || '';
-    if (!contentType.includes('multipart/form-data')) {
-      return NextResponse.json({ error: '请求必须为 multipart/form-data' }, { status: 400 });
-    }
-    const SONIOX_API_KEY = process.env.SONIOX_API_KEY;
-    if (!SONIOX_API_KEY) {
-      return NextResponse.json({ error: '请配置 SONIOX_API_KEY 以启用真实转写。' }, { status: 500 });
-    }
-    const formData = await req.formData();
-    const file = formData.get('file');
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: '缺少文件字段 file' }, { status: 400 });
-    }
-    if (file.size > 100 * 1024 * 1024) {
-      return NextResponse.json({ error: '文件过大（>100MB）' }, { status: 413 });
+    const form = await req.formData();
+    const file = form.get("file") as File | null;
+    const providedFileId = form.get("file_id");
+
+    if ((!file || typeof file === "string") && (typeof providedFileId !== "string" || !providedFileId)) {
+      return NextResponse.json({ error: "请通过 FormData 提交字段 file（音频文件）或 file_id" }, { status: 400 });
     }
 
-    // 文件校验规则
-    const allowedMimes = new Set([
-      "audio/wav", "audio/x-wav",
-      "audio/mpeg", "audio/mp3",
-      "audio/mp4",  "audio/x-m4a",
-      "audio/aac",
-      "audio/3gpp"
-    ]);
+    // 1) 上传文件到 Soniox（若未提供 file_id）
+    let file_id: string | undefined = typeof providedFileId === "string" ? providedFileId : undefined;
+    if (!file_id && file && typeof file !== "string") {
+      const uploadFd = new FormData();
+      uploadFd.append("file", file, file.name || "audio");
+      const upRes = await fetch(`${SONIOX_API}/files`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${KEY}` },
+        body: uploadFd,
+      });
 
-    const allowedExts = [".m4a", ".mp3", ".wav", ".aac", ".m4r", ".3gp"];
+      const upRaw = await upRes.text();
+      const upJson = safeJSON(upRaw);
+      const upReqId = pickRequestId(upRes, upJson);
+      if (upReqId) console.log(`[soniox] upload request_id=${upReqId}`);
 
-    const mime = file.type || "";
-    const name = (file.name || "").toLowerCase();
-    const byMime = mime && allowedMimes.has(mime);
-    const byExt  = allowedExts.some(ext => name.endsWith(ext));
-
-    if (!(byMime || byExt)) {
-      return NextResponse.json({ error: "仅支持 m4a/mp3/wav/aac/3gp" }, { status: 415 });
+      if (!upRes.ok) {
+        return NextResponse.json(
+          { error: "上传到 Soniox 失败", details: upJson },
+          { status: upRes.status || 502 }
+        );
+      }
+      file_id = (upJson as any)?.id;
+      if (!file_id) {
+        return NextResponse.json({ error: "Soniox 未返回 file_id" }, { status: 502 });
+      }
     }
 
-    console.log("server file:", { name, mime, size: file.size }); // 临时调试
-
-    // 将原始用户文件转发至 Soniox v1 files 接口，保留原文件名与 MIME
-    const ab = await file.arrayBuffer();
-    const blob = new Blob([ab], { type: mime || undefined });
-    const forward = new FormData();
-    const originalName = (file as any).name || 'audio';
-    forward.append('file', blob, originalName);
-
-    const uploadUrl = 'https://api.soniox.com/v1/files';
-    const upstream = await fetch(uploadUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${SONIOX_API_KEY}`,
-      },
-      body: forward,
-    });
-
-    const text = await upstream.text();
-    let json: any;
-    try { json = JSON.parse(text); } catch { json = null; }
-
-    if (!upstream.ok) {
-      return NextResponse.json({ error: 'Soniox 上传失败', details: json || text }, { status: upstream.status });
-    }
-    // 1) 上传成功，提取 fileId
-    const fileId = json?.id || json?.file?.id;
-    if (!fileId) {
-      return NextResponse.json({ error: '未获取到文件ID', details: json }, { status: 502 });
-    }
-
-    // 2) 创建转写任务
-    const createUrl = 'https://api.soniox.com/v1/transcriptions';
+    // 2) 创建转写任务（只传 file_id，不要传 audio_url）
     const createBody = {
-      model: 'stt-async-preview',
-      file_id: fileId,
+      model: MODEL,
+      file_id,
       timestamps: true,
       diarization: false,
-    };
-    console.log('=== Soniox transcription request body ===');
-    console.log(createBody);
-    console.log(JSON.stringify(createBody, null, 2));
-    const createRes = await fetch(createUrl, {
-      method: 'POST',
+    } as const;
+    const trRes = await fetch(`${SONIOX_API}/transcriptions`, {
+      method: "POST",
       headers: {
-        Authorization: `Bearer ${SONIOX_API_KEY}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${KEY}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(createBody),
     });
-    if (!createRes.ok) {
-      const createText = await createRes.text();
-      if (createRes.status === 400) {
-        console.log('=== Soniox response ===', createText);
-        return NextResponse.json({ error: '创建转写失败', details: { status_code: createRes.status, response: createText } }, { status: 502 });
-      }
-      // 其他错误保留原始文本
-      return NextResponse.json({ error: '创建转写失败', details: { status_code: createRes.status, response: createText } }, { status: createRes.status });
+
+    const trRaw = await trRes.text();
+    const trJson = safeJSON(trRaw);
+    const trReqId = pickRequestId(trRes, trJson);
+    if (trReqId) console.log(`[soniox] create request_id=${trReqId}`);
+
+    if (!trRes.ok) {
+      return NextResponse.json(
+        { error: "创建转写任务失败", details: trJson },
+        { status: trRes.status || 502 }
+      );
     }
-    const createJson = await createRes.json().catch(() => ({} as any));
-    const transcriptionId = createJson?.id || createJson?.transcription?.id;
-    if (!transcriptionId) {
-      return NextResponse.json({ error: '未获取到转写ID', details: createJson }, { status: 502 });
+    const trId = (trJson as any)?.id;
+    if (!trId) {
+      return NextResponse.json({ error: "Soniox 未返回 transcription id" }, { status: 502 });
     }
 
-    // 3) 轮询获取转写文本
-    const maxTries = 30;
-    const delayMs = 2000;
-    const transcriptUrl = `https://api.soniox.com/v1/transcriptions/${encodeURIComponent(transcriptionId)}/transcript`;
-    let transcript = '';
-    for (let i = 0; i < maxTries; i++) {
-      const trRes = await fetch(transcriptUrl, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${SONIOX_API_KEY}` },
+    // 3) 轮询任务状态直到 completed/failed（指数退避）
+    const started = Date.now();
+    let delay = 600; // ms
+    while (true) {
+      if (Date.now() - started > 180_000) {
+        return NextResponse.json({ error: "转写超时（>180s）" }, { status: 504 });
+      }
+
+      const stRes = await fetch(`${SONIOX_API}/transcriptions/${trId}`, {
+        headers: { Authorization: `Bearer ${KEY}` },
       });
-      const trText = await trRes.text();
-      let trJson: any;
-      try { trJson = JSON.parse(trText); } catch { trJson = null; }
+      const stRaw = await stRes.text();
+      const stJson = safeJSON(stRaw);
+      const stReqId = pickRequestId(stRes, stJson);
+      if (stReqId) console.log(`[soniox] status request_id=${stReqId}`);
 
-      if (trRes.ok) {
-        const tokens = trJson?.tokens;
-        if (Array.isArray(tokens) && tokens.length > 0) {
-          transcript = tokens.map((t: any) => t?.text || '').join('');
-          break;
-        }
+      if (!stRes.ok) {
+        await sleep(Math.min(delay, 2000));
+        delay = Math.min(Math.floor(delay * 1.5), 4000);
+        continue;
       }
-      // 若未就绪或 202/204 等，等待后继续
-      await new Promise(r => setTimeout(r, delayMs));
+
+      const status = (stJson as any)?.status;
+      if (status === "completed") break;
+      if (status === "failed" || status === "canceled") {
+        return NextResponse.json(
+          { error: "转写任务失败", details: stJson },
+          { status: 502 }
+        );
+      }
+
+      await sleep(Math.min(delay, 2000));
+      delay = Math.min(Math.floor(delay * 1.5), 4000);
     }
 
-    if (!transcript) {
-      return NextResponse.json({ error: '获取转写结果超时' }, { status: 504 });
+    // 4) 任务完成后获取 transcript（若 409 transcription_invalid_state 则稍等重试）
+    let transcriptText = "";
+    {
+      // 在全局 180s 超时内持续尝试获取 transcript，处理 409/404/202 等未就绪状态
+      let delay = 400; // ms
+      while (Date.now() - started <= 180_000) {
+        const ttRes = await fetch(`${SONIOX_API}/transcriptions/${trId}/transcript`, {
+          headers: { Authorization: `Bearer ${KEY}` },
+        });
+        const ttRaw = await ttRes.text();
+        const ttJson = safeJSON(ttRaw);
+        const ttReqId = pickRequestId(ttRes, ttJson);
+        if (ttReqId) console.log(`[soniox] transcript request_id=${ttReqId}`);
+
+        if (ttRes.ok) {
+          const tokens: any[] = (ttJson as any)?.tokens || [];
+          transcriptText = tokens.map((t: any) => t?.text || "").join("");
+          if (transcriptText) break;
+        } else if (
+          ttRes.status === 409 &&
+          (ttJson as any)?.error_type === "transcription_invalid_state"
+        ) {
+          // 状态未就绪：等待重试
+        } else if (ttRes.status === 404 || ttRes.status === 202) {
+          // 资源未生成/仍在处理：等待重试
+        } else {
+          // 其他错误：返回详细信息
+          return NextResponse.json(
+            { error: "获取转写文本失败", details: ttJson },
+            { status: ttRes.status || 502 }
+          );
+        }
+
+        await sleep(Math.min(delay, 2000));
+        delay = Math.min(Math.floor(delay * 1.6), 4000);
+      }
+
+      if (!transcriptText) {
+        return NextResponse.json(
+          { error: "获取转写文本超时或为空" },
+          { status: 504 }
+        );
+      }
     }
 
-    // 成功时返回纯文本（便于前端直接拿到 transcript）
-    return new Response(transcript, {
-      status: 200,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-    });
+    return NextResponse.json({ transcript: transcriptText }, { status: 200 });
   } catch (e: any) {
-    const msg = e?.message || '服务器错误';
-    const status = /缺少环境变量/.test(msg) ? 500 : 500;
-    return NextResponse.json({ error: msg }, { status });
+    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
   }
 }
+
 

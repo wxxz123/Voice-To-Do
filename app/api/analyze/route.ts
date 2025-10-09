@@ -1,63 +1,76 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
+
+const BASE = process.env.OPENAI_BASE_URL || process.env.CHATANYWHERE_BASE_URL || "https://api.chatanywhere.com.cn/v1";
+const KEY = process.env.CHATANYWHERE_KEY || process.env.OPENAI_API_KEY;
+const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
 export async function POST(req: NextRequest) {
+  if (!KEY) {
+    return NextResponse.json({ error: "服务器未配置 CHATANYWHERE_KEY/OPENAI_API_KEY" }, { status: 500 });
+  }
+
   try {
-    const key = process.env.CHATANYWHERE_KEY;
-    if (!key) {
-      return NextResponse.json({ error: '缺少环境变量 CHATANYWHERE_KEY' }, { status: 500 });
+    const body = await req.json();
+    const text = body?.text as string;
+    if (!text || typeof text !== "string") {
+      return NextResponse.json({ error: "缺少文本：text" }, { status: 400 });
     }
 
-    const bodyReq = (await req.json().catch(() => null)) as { text?: string } | null;
-    const text = bodyReq?.text?.toString?.().trim() || '';
-    if (!text) {
-      return NextResponse.json({ error: '空文本' }, { status: 400 });
-    }
+    const systemPrompt =
+      "你是一个会议助理，擅长从中文口语转写中提炼摘要与可执行的待办事项。" +
+      "输出严格为 JSON，包含 highlights(字符串，尽量用中文要点列表) 与 todos(数组，含层级)。";
 
-    const body = {
-      model: 'gpt-3.5-turbo',
-      messages: [
-        {
-          role: 'system',
-          content:
-            '你是中文任务分解助手。根据用户提供的转写文本输出严格 JSON：{"summary":"三到五句中文摘要","todos_tree":[{"title":"...","due":null,"children":[{"title":"...","children":[]}]}]}. 要求：1) todos_tree 是层级结构；2) 如无待办，todos_tree=[]；3) title 使用可执行动词短语，可包含时间/数量/章节信息；4) 只输出 JSON，不要解释。',
-        },
-        { role: 'user', content: text },
-      ],
-      temperature: 0.2,
-    };
+    const userPrompt = `请基于以下转写文本：\n\n${text}\n\n任务：\n1) 生成简洁高信噪比的中文要点摘要(不要过长，5-10 条)。\n2) 提取结构化待办事项，字段：id(字符串)、title(字符串)、priority(可为low/medium/high，可缺省)、category(可缺省)、children(数组，同结构，支持0-2层)。\n只返回 JSON：{\"highlights\": string, \"todos\": TodoItem[]}`;
 
-    const res = await fetch('https://api.chatanywhere.tech/v1/chat/completions', {
-      method: 'POST',
+    const res = await fetch(`${BASE.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
       headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${KEY}`,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.2,
+      }),
     });
 
+    const raw = await res.text();
     if (!res.ok) {
-      const t = await res.text();
-      return NextResponse.json({ error: '分析失败', details: t }, { status: res.status });
+      return NextResponse.json({ error: "分析失败", details: safeJSON(raw) }, { status: res.status || 502 });
     }
 
-    const data = await res.json();
-    const content = data?.choices?.[0]?.message?.content || '';
-    let parsed: any;
+    const data = safeJSON(raw);
+    const content: string = data?.choices?.[0]?.message?.content ?? "";
+
+    let parsed: any = null;
     try {
       parsed = JSON.parse(content);
     } catch {
-      parsed = { summary: '', todos_tree: [] };
+      const m = content.match(/\{[\s\S]*\}/);
+      if (m) parsed = JSON.parse(m[0]);
     }
 
-    const summary = typeof parsed?.summary === 'string' ? parsed.summary : '';
-    const todos_tree = Array.isArray(parsed?.todos_tree) ? parsed.todos_tree : [];
+    if (!parsed || typeof parsed !== "object") {
+      return NextResponse.json({ error: "OpenAI 返回解析失败" }, { status: 502 });
+    }
 
-    return NextResponse.json({ summary, todos_tree });
+    const highlights: string = parsed.highlights || "";
+    const todos: any[] = Array.isArray(parsed.todos) ? parsed.todos : [];
+
+    return NextResponse.json({ highlights, todos }, { status: 200 });
   } catch (e: any) {
     return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
   }
+}
+
+function safeJSON(text: string) {
+  try { return JSON.parse(text); } catch { return { raw: text }; }
 }
 
 

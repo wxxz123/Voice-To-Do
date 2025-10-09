@@ -1,77 +1,73 @@
-# 🎙️ AI 语音任务助手
+# Welcome to your Lovable project
 
-一个基于 **Next.js + Soniox + OpenAI（ChatAnywhere 接口）** 的语音智能助手。  
-用户上传音频文件后，系统会自动完成以下任务：
+## Project info
 
-1. 🎧 **语音转文字** — 使用 Soniox 模型进行高质量语音识别  
-2. 🧠 **摘要生成** — 调用大语言模型总结音频主要内容  
-3. ✅ **层级待办清单生成** — 将音频内容拆解为主任务与子任务结构，清晰展示
+**URL**: https://lovable.dev/projects/0657c757-8325-4b8a-ba82-7dea77b6466d
 
----
+## How can I edit this code?
 
-## 🚀 在线体验
+There are several ways of editing your application.
 
+**Use Lovable**
 
----
+Simply visit the [Lovable Project](https://lovable.dev/projects/0657c757-8325-4b8a-ba82-7dea77b6466d) and start prompting.
 
-## 🛠️ 技术栈
+Changes made via Lovable will be committed automatically to this repo.
 
-| 模块 | 技术 |
-|------|------|
-| 前端 | Next.js (App Router), React, TailwindCSS |
-| 后端 | Next.js API Routes |
-| 语音识别 | [Soniox API](https://soniox.com) |
-| 文本分析 | OpenAI GPT（通过 [ChatAnywhere](https://api.chatanywhere.tech) 转发） |
-| 部署 | [Vercel](https://vercel.com) |
-| 开发工具 | Cursor AI IDE |
+**Use your preferred IDE**
 
----
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
 
-## 📦 功能演示
+The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
-- 上传音频文件（mp3 / m4a / wav）
-- 实时显示上传进度与处理状态
-- 转写完成后生成：
-  - 📄 转录文本（Transcript）
-  - ✨ 摘要（Highlights）
-  - 🗂️ 层级待办清单（To-do）
-- 支持复制 Markdown / JSON
-- 移动端自适应（iPhone Safari 友好）
+Follow these steps:
 
----
+```sh
+# Step 1: Clone the repository using the project's Git URL.
+git clone <YOUR_GIT_URL>
 
-## ⚙️ 本地运行
+# Step 2: Navigate to the project directory.
+cd <YOUR_PROJECT_NAME>
 
-```bash
-# 1. 克隆仓库
-git clone https://github.com/wxxz123/transcribe.git
-cd transcribe
+# Step 3: Install the necessary dependencies.
+npm i
 
-# 2. 安装依赖
-npm install
-
-# 3. 配置环境变量
-# 新建 .env.local 并填入：
-# SONIOX_API_KEY=你的Soniox密钥
-# CHATANYWHERE_KEY=你的ChatAnywhere密钥
-
-# 4. 启动开发环境
+# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
-
 ```
----
 
+**Edit a file directly in GitHub**
 
-## 🪙 后续计划
- - [ ] 支持微信小程序版本
+- Navigate to the desired file(s).
+- Click the "Edit" button (pencil icon) at the top right of the file view.
+- Make your changes and commit the changes.
 
- - [ ] 接入腾讯混元 / 通义千问模型
+**Use GitHub Codespaces**
 
- - [ ] 增加用户登录与历史记录
+- Navigate to the main page of your repository.
+- Click on the "Code" button (green button) near the top right.
+- Select the "Codespaces" tab.
+- Click on "New codespace" to launch a new Codespace environment.
+- Edit files directly within the Codespace and commit and push your changes once you're done.
 
- - [ ] 支持多语言语音识别
+## What technologies are used for this project?
 
----
+This project is built with:
 
+- Vite
+- TypeScript
+- React
+- shadcn-ui
+- Tailwind CSS
 
+## How can I deploy this project?
 
+Simply open [Lovable](https://lovable.dev/projects/0657c757-8325-4b8a-ba82-7dea77b6466d) and click on Share -> Publish.
+
+## Can I connect a custom domain to my Lovable project?
+
+Yes, you can!
+
+To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+
+Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
