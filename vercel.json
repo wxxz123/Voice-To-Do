@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/api/soniox/v1/(.*)", "destination": "/app/api/soniox/v1/$1" }
+  ],
+  "env": {
+    "SONIOX_API_KEY": "@soniox_api_key"
+  }
+}
