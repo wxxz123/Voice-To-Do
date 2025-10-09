@@ -1,11 +1,17 @@
 {
   "rewrites": [
     {
-      "source": "/api/soniox/v1/(.*)",
-      "destination": "/app/api/soniox/v1/$1"
+      "source": "/api/soniox/v1/:path*",
+      "destination": "/app/api/soniox/v1/:path*"
     }
   ],
   "env": {
     "SONIOX_API_KEY": "@soniox_api_key"
-  }
+  },
+  "routes": [
+    {
+      "src": "/api/soniox/v1/(.*)",
+      "dest": "/app/api/soniox/v1/$1"
+    }
+  ]
 }
