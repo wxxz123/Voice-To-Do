@@ -6,6 +6,6 @@
     }
   ],
   "env": {
-    "SONIOX_API_KEY": "@soniox_api_key"
+    "SONIOX_API_KEY": "${SONIOX_API_KEY}"
   }
 }
