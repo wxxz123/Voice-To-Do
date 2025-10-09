@@ -5,9 +5,8 @@ export interface SonioxTranscribeResult {
   raw?: unknown;
 }
 
-const BASE = import.meta.env.DEV
-  ? "/api/soniox/v1"
-  : `${(import.meta.env.VITE_SONIOX_BASE_URL as string | undefined)?.replace(/\/$/, "") || "https://api.soniox.com"}/v1`;
+// 修改BASE路径，确保在生产环境中使用相对路径而不是直接访问Soniox API
+const BASE = "/api/soniox/v1";
 
 async function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
