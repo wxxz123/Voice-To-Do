@@ -4,8 +4,5 @@
       "source": "/api/soniox/v1/:path*",
       "destination": "/app/api/soniox/v1/:path*"
     }
-  ],
-  "env": {
-    "SONIOX_API_KEY": "@soniox_api_key"
-  }
+  ]
 }
