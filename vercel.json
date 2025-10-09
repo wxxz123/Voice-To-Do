@@ -7,11 +7,5 @@
   ],
   "env": {
     "SONIOX_API_KEY": "@soniox_api_key"
-  },
-  "routes": [
-    {
-      "src": "/api/soniox/v1/(.*)",
-      "dest": "/app/api/soniox/v1/$1"
-    }
-  ]
+  }
 }
