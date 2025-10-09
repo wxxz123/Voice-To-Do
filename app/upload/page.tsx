@@ -68,6 +68,18 @@ function ClientUploadPage() {
 
   const onUpload = async () => {
     if (!file) return alert('请先选择文件');
+    
+    // 上传前兜底：如果 file.type 为空，按扩展名放行
+    if (!file.type) {
+      const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+      const allowedExts = ['.m4a','.mp3','.wav','.aac','.m4r','.3gp'];
+      if (!allowedExts.includes(ext)) {
+        alert("仅支持 m4a/mp3/wav/aac/3gp");
+        return;
+      }
+      console.log("file.type 为空，按扩展名放行:", ext);
+    }
+    
     // 重置阶段
     setUploadRatio(0);
     setTranscribeDone(false);
@@ -152,7 +164,19 @@ function ClientUploadPage() {
 
       <div className="rounded-2xl border shadow-sm bg-white p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <input type="file" accept="audio/wav,.wav,audio/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" />
+          <input type="file" accept="audio/*,.m4a,.mp3,.aac,.m4r,.3gp,.wav" onChange={(e) => {
+            const file = e.target.files?.[0] ?? null;
+            if (file) {
+              console.log("picked:", file.name, file.type, file.size);
+              const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+              const allowedExts = ['.m4a','.mp3','.wav','.aac','.m4r','.3gp'];
+              if (!allowedExts.includes(ext)) {
+                alert("仅支持 m4a/mp3/wav/aac/3gp");
+                return;
+              }
+            }
+            setFile(file);
+          }} className="text-sm" />
           <button onClick={onUpload} disabled={!file} className="rounded-md bg-black text-white px-4 py-2 text-sm">上传并转写</button>
         </div>
         <p className="mt-2 text-xs text-gray-500">
