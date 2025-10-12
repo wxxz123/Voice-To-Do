@@ -9,7 +9,7 @@ import { ResultsTabs } from "@/components/ResultsTabs";
 import { FAQ } from "@/components/FAQ";
 import { Footer } from "@/components/Footer";
 import { toast } from "sonner";
-import { transcribeFile } from "@/lib/soniox";
+import { transcribeFile } from "@/integrations/soniox";
 import { analyzeTextWithOpenAI } from "@/integrations/analysis";
 
 // Mock data for demo purposes (set USE_MOCK=true to enable)

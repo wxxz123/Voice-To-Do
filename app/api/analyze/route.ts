@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { errorJson } from "../_lib/errors";
 
 export const runtime = "nodejs";
 
@@ -8,14 +9,14 @@ const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
 export async function POST(req: NextRequest) {
   if (!KEY) {
-    return NextResponse.json({ error: "服务器未配置 CHATANYWHERE_KEY/OPENAI_API_KEY" }, { status: 500 });
+    return errorJson(500, "服务器未配置 CHATANYWHERE_KEY/OPENAI_API_KEY", { code: "CONFIG_MISSING" });
   }
 
   try {
     const body = await req.json();
     const text = body?.text as string;
     if (!text || typeof text !== "string") {
-      return NextResponse.json({ error: "缺少文本：text" }, { status: 400 });
+      return errorJson(400, "缺少文本：text", { code: "BAD_REQUEST" });
     }
 
     const systemPrompt =
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     const raw = await res.text();
     if (!res.ok) {
-      return NextResponse.json({ error: "分析失败", details: safeJSON(raw) }, { status: res.status || 502 });
+      return errorJson(res.status || 502, "分析失败", { details: safeJSON(raw), code: "UPSTREAM_ERROR" });
     }
 
     const data = safeJSON(raw);
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!parsed || typeof parsed !== "object") {
-      return NextResponse.json({ error: "OpenAI 返回解析失败" }, { status: 502 });
+      return errorJson(502, "OpenAI 返回解析失败", { code: "PARSE_ERROR" });
     }
 
     const highlights: string = parsed.highlights || "";
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ highlights, todos }, { status: 200 });
   } catch (e: any) {
-    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
+    return errorJson(500, String(e?.message || e), { code: "SERVER_ERROR", details: e });
   }
 }
 

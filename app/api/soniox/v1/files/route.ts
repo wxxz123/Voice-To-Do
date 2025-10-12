@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { errorJson } from "../../_lib/errors";
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,7 @@ function safeJSON(text: string) {
 
 export async function POST(req: NextRequest) {
   if (!KEY) {
-    return NextResponse.json({ error: "服务器未配置 SONIOX_API_KEY" }, { status: 500 });
+    return errorJson(500, "服务器未配置 SONIOX_API_KEY", { code: "CONFIG_MISSING" });
   }
 
   try {
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     const file = form.get("file") as File | null;
     
     if (!file || typeof file === "string") {
-      return NextResponse.json({ error: "请通过 FormData 提交字段 file（音频文件）" }, { status: 400 });
+      return errorJson(400, "请通过 FormData 提交字段 file（音频文件）", { code: "BAD_REQUEST" });
     }
 
     const uploadFd = new FormData();
@@ -45,22 +46,19 @@ export async function POST(req: NextRequest) {
     if (upReqId) console.log(`[soniox] upload request_id=${upReqId}`);
 
     if (!upRes.ok) {
-      return NextResponse.json(
-        { error: "上传到 Soniox 失败", details: upJson },
-        { status: upRes.status || 502 }
-      );
+      return errorJson(upRes.status || 502, "上传到 Soniox 失败", { details: upJson, code: "UPSTREAM_ERROR" });
     }
     
     return NextResponse.json(upJson, { status: upRes.status });
   } catch (e: any) {
-    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
+    return errorJson(500, String(e?.message || e), { code: "SERVER_ERROR", details: e });
   }
 }
 
 // 支持 GET 请求，获取文件列表
 export async function GET(req: NextRequest) {
   if (!KEY) {
-    return NextResponse.json({ error: "服务器未配置 SONIOX_API_KEY" }, { status: 500 });
+    return errorJson(500, "服务器未配置 SONIOX_API_KEY", { code: "CONFIG_MISSING" });
   }
   
   try {
@@ -72,11 +70,11 @@ export async function GET(req: NextRequest) {
     const json = safeJSON(raw);
     
     if (!res.ok) {
-      return NextResponse.json({ error: "获取文件列表失败", details: json }, { status: res.status || 502 });
+      return errorJson(res.status || 502, "获取文件列表失败", { details: json, code: "UPSTREAM_ERROR" });
     }
     
     return NextResponse.json(json, { status: res.status });
   } catch (e: any) {
-    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
+    return errorJson(500, String(e?.message || e), { code: "SERVER_ERROR", details: e });
   }
 }

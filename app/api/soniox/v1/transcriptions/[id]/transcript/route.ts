@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { errorJson } from "../../../../_lib/errors";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const { id } = params;
   
   if (!KEY) {
-    return NextResponse.json({ error: "服务器未配置 SONIOX_API_KEY" }, { status: 500 });
+    return errorJson(500, "服务器未配置 SONIOX_API_KEY", { code: "CONFIG_MISSING" });
   }
 
   try {
@@ -36,8 +37,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const reqId = pickRequestId(res, data);
     if (reqId) console.log(`[soniox] transcript request_id=${reqId}`);
 
+    if (!res.ok) {
+      return errorJson(res.status || 502, "获取转写文本失败", { details: data, code: "UPSTREAM_ERROR" });
+    }
     return NextResponse.json(data, { status: res.status });
   } catch (e: any) {
-    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
+    return errorJson(500, String(e?.message || e), { code: "SERVER_ERROR", details: e });
   }
 }

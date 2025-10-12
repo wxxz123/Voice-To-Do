@@ -28,20 +28,33 @@ export async function createTranscription(fileId: string, model?: string): Promi
     (import.meta.env.NEXT_PUBLIC_SONIOX_MODEL as string | undefined) ||
     "stt-async-preview";
 
+  // 同时提供顶层与 payload 字段，确保开发代理直连 Soniox 与生产后端均兼容
   const body = {
     payload: {
       model: effectiveModel,
       file_id: fileId,
       // absolutely do not include audio_url when file_id is provided
     },
+    model: effectiveModel,
+    file_id: fileId,
   } as const;
+
   const res = await fetch(`${BASE}/transcriptions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Create transcription failed: ${res.status} ${await res.text()}`);
-  return await res.json(); // { id, status, ... }
+  const raw = await res.text();
+  let data: any;
+  try { data = JSON.parse(raw); } catch { data = { raw }; }
+  if (!res.ok) {
+    const msg = data?.error || data?.message || raw || "Create transcription failed";
+    const code = data?.code || data?.error_type;
+    const rid = data?.request_id || data?.requestId;
+    const suffix = [code ? `[${code}]` : null, rid ? `request_id=${rid}` : null].filter(Boolean).join(" ");
+    throw new Error(`Create transcription failed: ${res.status} ${msg}${suffix ? ` ${suffix}` : ""}`);
+  }
+  return data; // { id, status, ... }
 }
 
 export async function getTranscription(id: string): Promise<{ status?: string }> {
