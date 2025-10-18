@@ -41,14 +41,14 @@ export const Footer = () => {
               <h4 className="text-body-lg font-semibold">联系方式</h4>
               <div className="space-y-2">
                 <a
-                  href="mailto:hello@voicetodo.app"
+                  href="mailto:xiaolaythe@outlook.com"
                   className="flex items-center gap-2 text-body-sm opacity-80 hover:opacity-100 transition-opacity"
                 >
                   <Mail className="w-4 h-4" />
-                  hello@voicetodo.app
+                  xiaolaythe@outlook.com
                 </a>
                 <a
-                  href="https://github.com/yourusername/voice-todo"
+                  href="https://github.com/wxxz123/Voice-To-Do"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-body-sm opacity-80 hover:opacity-100 transition-opacity"
