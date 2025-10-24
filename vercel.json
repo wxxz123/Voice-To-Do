@@ -1,5 +1,5 @@
 {
   "env": {
-    "SONIOX_API_KEY": "b0fabcff2586c95e8a32f06981b7a750b496ba2018f6ce442373948d0aa1c06a"
+    "SONIOX_API_KEY": "@soniox_api_key"
   }
 }

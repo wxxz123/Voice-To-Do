@@ -19,6 +19,9 @@ dist-ssr
 .env.production
 .env.test
 
+# Supabase
+supabase/config.toml
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
