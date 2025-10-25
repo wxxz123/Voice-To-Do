@@ -1,0 +1,5 @@
+{
+  "env": {
+    "SONIOX_API_KEY": "$SONIOX_API_KEY"
+  }
+}
