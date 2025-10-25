@@ -16,13 +16,13 @@ export interface AnalyzeResult {
 }
 
 export async function analyzeTextWithOpenAI(text: string): Promise<AnalyzeResult> {
-  const apiKey = import.meta.env.VITE_CHATANYWHERE_KEY as string | undefined;
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
   const isDev = import.meta.env.DEV;
   const baseUrl = (import.meta.env.VITE_OPENAI_BASE_URL as string | undefined) || (isDev ? "/api/openai" : "https://api.chatanywhere.com.cn/v1");
   const model = (import.meta.env.VITE_OPENAI_MODEL as string | undefined) || "gpt-4o-mini";
 
   if (!apiKey) {
-    throw new Error("缺少 VITE_CHATANYWHERE_KEY 环境变量");
+    throw new Error("缺少 VITE_OPENAI_API_KEY 环境变量");
   }
 
   const systemPrompt =
@@ -35,7 +35,7 @@ export async function analyzeTextWithOpenAI(text: string): Promise<AnalyzeResult
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(isDev ? {} : { Authorization: `Bearer ${apiKey}` }),
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,

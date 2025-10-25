@@ -36,6 +36,8 @@ export const RecordCard = ({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const pausedTimeRef = useRef<number>(0);
+  const streamRef = useRef<MediaStream | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
 
   // Check microphone permission on mount
   useEffect(() => {
@@ -88,6 +90,24 @@ export const RecordCard = ({
     }
   };
 
+  // Clean up blob URL
+  const cleanupBlobUrl = () => {
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+  };
+
+  // Clean up media stream
+  const cleanupStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        track.stop();
+      });
+      streamRef.current = null;
+    }
+  };
+
   const handleStart = async () => {
     if (!hasPermission) {
       toast.error("无法访问麦克风", {
@@ -97,7 +117,19 @@ export const RecordCard = ({
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Clean up any existing resources
+      cleanupBlobUrl();
+      cleanupStream();
+
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }
+      });
+      
+      streamRef.current = stream;
       
       // Try different MIME types in order of preference
       const mimeTypes = [
@@ -122,16 +154,40 @@ export const RecordCard = ({
       chunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+        if (event.data && event.data.size > 0) {
           chunksRef.current.push(event.data);
         }
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: selectedMimeType || 'audio/webm' });
-        setRecordedBlob(blob);
-        setBlobSize(blob.size);
-        stream.getTracks().forEach((track) => track.stop());
+        try {
+          const blob = new Blob(chunksRef.current, { 
+            type: selectedMimeType || 'audio/webm' 
+          });
+          
+          if (blob.size > 0) {
+            setRecordedBlob(blob);
+            setBlobSize(blob.size);
+          } else {
+            console.warn("录音数据为空");
+            toast.warning("录音数据为空，请重试");
+          }
+        } catch (error) {
+          console.error("创建录音 Blob 时出错:", error);
+          toast.error("录音处理失败", {
+            description: "请重试录音",
+          });
+        } finally {
+          cleanupStream();
+        }
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error("MediaRecorder 错误:", event);
+        toast.error("录音过程中出现错误", {
+          description: "请重试录音",
+        });
+        cleanupStream();
       };
 
       mediaRecorder.start(100); // Collect data every 100ms
@@ -145,6 +201,7 @@ export const RecordCard = ({
       toast.success("开始录音");
     } catch (error) {
       console.error("Error accessing microphone:", error);
+      cleanupStream();
       toast.error("无法访问麦克风", {
         description: "请检查麦克风权限设置",
       });
@@ -184,20 +241,44 @@ export const RecordCard = ({
   };
 
   const handleDelete = () => {
+    // Clean up resources
+    cleanupBlobUrl();
+    cleanupStream();
+    
+    // Stop any ongoing recording
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    
+    // Reset state
     setRecordedBlob(null);
     setBlobSize(0);
     setTimeLeft(MAX_RECORDING_TIME);
     setRecordingState("idle");
     pausedTimeRef.current = 0;
     chunksRef.current = [];
+    stopTimer();
+    
     onDeleteRecord();
     toast.info("录音已删除");
   };
 
   const handleComplete = () => {
     if (recordedBlob) {
-      onCompleteRecord(recordedBlob);
-      toast.success("开始上传并转写");
+      try {
+        // Create a copy of the blob to avoid potential issues
+        const blobCopy = new Blob([recordedBlob], { type: recordedBlob.type });
+        onCompleteRecord(blobCopy);
+        toast.success("开始上传并转写");
+        
+        // Clean up after successful completion
+        cleanupBlobUrl();
+      } catch (error) {
+        console.error("处理录音完成时出错:", error);
+        toast.error("处理录音失败", {
+          description: "请重试",
+        });
+      }
     }
   };
 
@@ -205,8 +286,15 @@ export const RecordCard = ({
   useEffect(() => {
     return () => {
       stopTimer();
+      cleanupBlobUrl();
+      cleanupStream();
+      
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-        mediaRecorderRef.current.stop();
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (error) {
+          console.warn("停止录音时出错:", error);
+        }
       }
     };
   }, []);

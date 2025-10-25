@@ -12,15 +12,19 @@ dist
 dist-ssr
 *.local
 
-# Environment variables
+# Environment variables and sensitive files
 .env
 .env.local
-.env.development
-.env.production
-.env.test
-
-# Supabase
-supabase/config.toml
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+*.key
+*.pem
+*.p12
+*.pfx
+config/secrets.json
+secrets/
 
 # Editor directories and files
 .vscode/*
@@ -32,3 +36,9 @@ supabase/config.toml
 *.njsproj
 *.sln
 *.sw?
+
+# OS generated files
+Thumbs.db
+.DS_Store?
+ehthumbs.db
+Icon?
