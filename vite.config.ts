@@ -27,18 +27,19 @@ export default defineConfig(({ mode }) => {
             });
           },
         },
-        // Proxy OpenAI-compatible ChatAnywhere
-        "/api/openai": {
-          target: env.VITE_OPENAI_BASE_URL || "https://api.chatanywhere.com.cn/v1",
+        // Proxy new 公益API for local development
+        "/api/newapi": {
+          target: (env.NEWAPI_BASE_URL || env.VITE_NEWAPI_BASE_URL || "https://你的newapi服务器地址/v1").replace(/\/$/, ""),
           changeOrigin: true,
           secure: true,
-          rewrite: (path) => path.replace(/^\/api\/openai/, ""),
+          rewrite: (path) => path.replace(/^\/api\/newapi/, ""),
           configure: (proxy) => {
             proxy.on("proxyReq", (proxyReq) => {
-              const key = env.VITE_CHATANYWHERE_KEY;
+              const key = env.NEWAPI_API_KEY;
               if (key) {
                 proxyReq.setHeader("Authorization", `Bearer ${key}`);
               }
+              proxyReq.setHeader("Content-Type", "application/json");
             });
           },
         },

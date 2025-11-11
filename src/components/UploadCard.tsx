@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Upload, X, FileAudio, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ interface UploadCardProps {
 
 export const UploadCard = ({ onStartUpload }: UploadCardProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -34,6 +35,10 @@ export const UploadCard = ({ onStartUpload }: UploadCardProps) => {
 
   const handleDelete = () => {
     setSelectedFile(null);
+    if (objectUrl) {
+      try { URL.revokeObjectURL(objectUrl); } catch {}
+      setObjectUrl(null);
+    }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -45,6 +50,22 @@ export const UploadCard = ({ onStartUpload }: UploadCardProps) => {
       onStartUpload(selectedFile);
     }
   };
+
+  // Manage object URL lifecycle to avoid net::ERR_ABORTED when file is removed or changed
+  useEffect(() => {
+    if (!selectedFile) {
+      if (objectUrl) {
+        try { URL.revokeObjectURL(objectUrl); } catch {}
+        setObjectUrl(null);
+      }
+      return;
+    }
+    const url = URL.createObjectURL(selectedFile);
+    setObjectUrl(url);
+    return () => {
+      try { URL.revokeObjectURL(url); } catch {}
+    };
+  }, [selectedFile]);
 
   return (
     <div className="ios-card p-8 space-y-6 animate-fade-up">
@@ -107,11 +128,12 @@ export const UploadCard = ({ onStartUpload }: UploadCardProps) => {
           </div>
 
           {/* Optional: Audio Preview */}
-          {selectedFile.type.startsWith("audio/") && (
+          {selectedFile.type.startsWith("audio/") && objectUrl && (
             <audio
               controls
               className="w-full h-12 rounded-xl"
-              src={URL.createObjectURL(selectedFile)}
+              src={objectUrl}
+              key={objectUrl}
             />
           )}
 
