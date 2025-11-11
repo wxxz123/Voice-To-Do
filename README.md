@@ -60,8 +60,7 @@
 
 ### API 集成
 - **Soniox API** - 语音转文字服务
-- **OpenAI 兼容 API** - AI 分析和摘要生成
-- **ChatAnywhere** - OpenAI API 代理服务
+- **OpenAI 兼容 API** - AI 分析和摘要生成（通过可配置的新公益 API）
 
 ## 📦 本地开发
 
@@ -88,8 +87,11 @@ npm install
 cp .env.example .env
 
 # 编辑 .env 文件，添加必要的 API 密钥
-VITE_CHATANYWHERE_KEY=your_chatanywhere_api_key
-SONIOX_API_KEY=your_soniox_api_key
+NEWAPI_API_KEY=your_newapi_key
+NEWAPI_BASE_URL=https://your-newapi-host/v1
+VITE_NEWAPI_MODEL=gpt-4.1
+VITE_SONIOX_API_KEY=your_soniox_api_key
+VITE_SONIOX_MODEL=stt-async-preview
 ```
 
 4. **启动开发服务器**
@@ -114,24 +116,22 @@ npm run lint         # 代码检查
 
 ### API 密钥配置
 
-在 `.env` 文件中配置以下环境变量：
+在 `.env.local` 文件中配置以下环境变量（开发环境）：
 
 ```env
-# ChatAnywhere API Key (OpenAI 兼容)
-VITE_CHATANYWHERE_KEY=sk-your-key-here
+# NewAPI（OpenAI 兼容服务）
+NEWAPI_API_KEY=sk-your-key-here
+NEWAPI_BASE_URL=https://x666.me/v1
+VITE_NEWAPI_MODEL=gpt-4.1
 
-# Soniox API Key (语音转写)
-SONIOX_API_KEY=your-soniox-key
-
-# 可选配置
-VITE_OPENAI_BASE_URL=https://api.chatanywhere.com.cn/v1
-VITE_OPENAI_MODEL=gpt-4o-mini
-SONIOX_MODEL=soniox-public/zh-general-v1
+# Soniox API Key（语音转写）
+VITE_SONIOX_API_KEY=your-soniox-key
+VITE_SONIOX_MODEL=stt-async-preview
 ```
 
 ### 获取 API 密钥
 
-1. **ChatAnywhere**: 访问 [ChatAnywhere](https://api.chatanywhere.com.cn/) 注册获取
+1. **NewAPI**: 访问你的服务提供商控制台（例如 x666.me），获取密钥与 BaseURL
 2. **Soniox**: 访问 [Soniox](https://soniox.com/) 申请语音识别服务
 
 ## 🚀 部署
@@ -161,7 +161,7 @@ SONIOX_MODEL=soniox-public/zh-general-v1
 
 2. **自动处理**
    - 语音转写（Soniox）
-   - AI 分析（OpenAI）
+   - AI 分析（NewAPI / OpenAI 兼容）
    - 生成摘要和待办
 
 3. **查看结果**
