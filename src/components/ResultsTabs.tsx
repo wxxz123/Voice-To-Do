@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Copy, Check, FileText, Sparkles, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +22,16 @@ interface ResultsTabsProps {
 
 export const ResultsTabs = ({ transcript, highlights, todos, onCopy }: ResultsTabsProps) => {
   const [copiedType, setCopiedType] = useState<string | null>(null);
+  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  const toggleComplete = (id: string) => {
+    setCompletedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const isCompleted = (id: string) => completedIds.has(id);
 
   const handleCopy = async (type: "transcript" | "highlights" | "todos-md" | "todos-json", content: string) => {
     try {
@@ -41,15 +51,34 @@ export const ResultsTabs = ({ transcript, highlights, todos, onCopy }: ResultsTa
     return (
       <ul className={cn("space-y-2", level > 0 && "ml-6 mt-2")}>
         {items.map((item) => (
-          <li key={item.id} className="group">
-            <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors duration-200">
-              <input
-                type="checkbox"
-                className="mt-1 w-5 h-5 rounded-lg border-2 border-border text-accent focus:ring-2 focus:ring-accent focus:ring-offset-2 transition-all cursor-pointer"
-                aria-label={item.title}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-body text-foreground">{item.title}</p>
+          <li key={item.id} className="group focus-within:bg-[#f5f5f5] rounded-xl">
+            <div
+              className={cn(
+                "grid grid-cols-[48px_1fr] items-start gap-x-3 p-2 md:p-3 rounded-xl",
+                "hover:bg-muted/50 transition-colors duration-200"
+              )}
+            >
+              <label className="w-12 h-12 flex items-center justify-center cursor-pointer select-none" aria-label={item.title}>
+                <input
+                  type="checkbox"
+                  checked={isCompleted(item.id)}
+                  onChange={() => toggleComplete(item.id)}
+                  className={cn(
+                    "w-5 h-5 rounded-md border-2 border-border text-accent",
+                    "focus:ring-2 focus:ring-accent focus:ring-offset-2 transition-all"
+                  )}
+                />
+              </label>
+              <div className="min-w-0">
+                <p
+                  className={cn(
+                    "text-body",
+                    isCompleted(item.id) ? "line-through text-[#888888]" : "text-foreground",
+                    "transition-all duration-200"
+                  )}
+                >
+                  {item.title}
+                </p>
                 {(item.priority || item.category) && (
                   <div className="flex gap-2 mt-1">
                     {item.priority && (
@@ -95,6 +124,20 @@ export const ResultsTabs = ({ transcript, highlights, todos, onCopy }: ResultsTa
         return md;
       })
       .join("\n");
+  };
+
+  const groupByCategory = (items: TodoItem[]) => {
+    const map = new Map<string, TodoItem[]>();
+    const order: string[] = [];
+    for (const it of items) {
+      const key = it.category || "未分类";
+      if (!map.has(key)) {
+        map.set(key, []);
+        order.push(key);
+      }
+      map.get(key)!.push(it);
+    }
+    return order.map((k) => ({ category: k, items: map.get(k)! }));
   };
 
   const CopyButton = ({
@@ -210,7 +253,17 @@ export const ResultsTabs = ({ transcript, highlights, todos, onCopy }: ResultsTa
           </div>
           <div className="p-4 bg-muted/30 rounded-2xl min-h-[200px] max-h-[400px] overflow-y-auto">
             {todos && todos.length > 0 ? (
-              renderTodoTree(todos)
+              <div className="space-y-4">
+                {groupByCategory(todos).map((group, idx) => (
+                  <div key={group.category} className={cn("pt-2", idx > 0 && "border-t border-[#eeeeee]")}> 
+                    {/* 分类标题可选显示：保持简洁 */}
+                    <div className="flex items-center mb-2">
+                      <span className="text-caption text-muted-foreground">{group.category}</span>
+                    </div>
+                    {renderTodoTree(group.items)}
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <CheckSquare className="w-16 h-16 text-muted-foreground/50 mb-4" />
