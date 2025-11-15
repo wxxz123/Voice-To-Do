@@ -6,7 +6,8 @@ export const runtime = "nodejs";
 // 新公益API配置（仅使用 NEWAPI_* 环境变量）
 const BASE = (process.env.NEWAPI_BASE_URL || "https://你的newapi服务器地址/v1").replace(/\/$/, "");
 const KEY = process.env.NEWAPI_API_KEY;
-const MODEL = process.env.NEWAPI_MODEL || "gpt-4.1";
+// 默认使用公益站可用模型
+const MODEL = process.env.NEWAPI_MODEL || "gemini-2.5-flash";
 
 async function listModels(): Promise<string[]> {
   try {
@@ -22,14 +23,27 @@ async function listModels(): Promise<string[]> {
   }
 }
 
+// 公益站可用模型列表
+const PREFER_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-preview-05",
+  "gemini-flash-latest",
+  "gemini-2.0-flash-001",
+  "gemini-2.0-flash-exp-image-generation",
+  "gpt-4o-mini",
+  "gpt-4.1-mini",
+  "gpt-4.1-nano",
+];
+
 function pickFallbackModel(models: string[], prefer: string[]): string | null {
-  const set = new Set(models);
+  // 只从公益站提供的模型中选择，过滤掉不在列表中的模型
+  const validModels = models.filter(m => PREFER_MODELS.includes(m));
+  const set = new Set(validModels);
   for (const m of prefer) {
     if (m && set.has(m)) return m;
   }
-  // 兜底：选择第一个常见聊天模型
-  const guess = models.find((m) => /gpt|gemini|qwen|llama|deepseek|claude/i.test(m));
-  return guess || null;
+  // 如果优先列表中的模型都不在可用列表中，返回 null
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -89,29 +103,32 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ highlights, todos }, { status: 200 });
       }
 
-      // 如果模型不可用，尝试动态回退
+      // 如果模型不可用，尝试动态回退（只使用公益站提供的模型）
       const details = safeJSON(lastRaw || "");
       const errCode = (details?.error?.code as string) || "";
       if (res.status === 404 || res.status === 422 || res.status === 503 || errCode === "model_not_found") {
         const models = await listModels();
-        const prefer = [
-          currentModel,
-          "gpt-4o",
-          "gpt-4.1",
-          "gpt-4o-mini",
-          "gpt-3.5-turbo",
-          "gemini-1.5-flash",
-          "gemini-1.5-pro",
-          "qwen-plus",
-          "llama-3.1-70b-instruct",
-          "deepseek-chat",
-          "claude-3.5-sonnet",
-        ];
-        const picked = pickFallbackModel(models, prefer);
+        // 优先尝试其他公益站模型，而不是当前失败的模型
+        const prefer = PREFER_MODELS.filter(m => m !== currentModel);
+        // 如果当前模型是公益站模型，也加入列表（可能只是临时错误）
+        if (PREFER_MODELS.includes(currentModel)) {
+          prefer.unshift(currentModel);
+        }
+        // 如果无法获取模型列表，直接使用硬编码的公益站模型列表
+        const picked = models.length > 0 
+          ? pickFallbackModel(models, prefer)
+          : (prefer[0] || null);
         if (picked && picked !== currentModel) {
           currentModel = picked;
           // 回退后立即重试，不增加 attempt 次数
           continue;
+        } else if (picked === currentModel && models.length === 0) {
+          // 如果无法获取模型列表，尝试下一个公益站模型
+          const nextModel = prefer.find(m => m !== currentModel);
+          if (nextModel) {
+            currentModel = nextModel;
+            continue;
+          }
         }
       }
 
